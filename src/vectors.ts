@@ -7,7 +7,7 @@ export interface Vector2D {
     y: number;
 }
 
-export function v(x: number, y: number): Vector2D {
+export function vec(x: number, y: number): Vector2D {
     return {x, y}
 }
 
@@ -16,6 +16,10 @@ export function vadd(...vs: Vector2D[]): Vector2D {
         x: _(vs).map("x").sum(),
         y: _(vs).map("y").sum(),
     }
+}
+
+export function vsub(v1: Vector2D, v2: Vector2D) {
+    return vadd(v1, vmul(v2, -1));
 }
 
 export function vmul(v: Vector2D, r: number): Vector2D {
@@ -36,9 +40,9 @@ export function vlength(v: Vector2D) {
     return v.x ** 2 + v.y ** 2;
 }
 
-export function vunit(v: Vector2D) {
+export function vunit(v: Vector2D, unit: number = 1) {
     const length = vlength(v);
-    return length == 0 ? v : vmul(v, 1 / length);
+    return length == 0 ? v : vmul(v, unit / length);
 }
 
 export function vrotrad(v: Vector2D, theta: number) {
@@ -46,12 +50,51 @@ export function vrotrad(v: Vector2D, theta: number) {
     const sinTheta = Math.sin(theta);
     return {
         x: +v.x * cosTheta - v.y * sinTheta,
-        y: -v.x * sinTheta + v.y * cosTheta,
+        y: +v.x * sinTheta + v.y * cosTheta,
     }    
 }
 
-export function vdeadzone(vec: Vector2D, threshold: number) {
-    const length = vlength(vec);
-    if (length < threshold) return v(0, 0);
-    return vec;
+export function vdeadzone(v: Vector2D, threshold: number) {
+    const length = vlength(v);
+    if (length < threshold) return vec(0, 0);
+    return v;
+}
+
+export function vclamp(v: Vector2D, threshold: number) {
+    const length = vlength(v);
+    if (length > threshold) return vunit(v, threshold);
+    return v;
+}
+
+export function vincrease(v: Vector2D, amount: number) {
+    return vadd(
+        v,
+        vmul(vunit(v), amount)
+    );
+}
+
+export function vdecrease(v: Vector2D, amount: number) {
+    // reduce (but not less than zero)
+    const length = vlength(v);
+    if (length < amount) return vec(0, 0);
+    return vadd(
+        v,
+        vmul(vunit(v), -amount)
+    );
+}
+
+export function vtodeg(v: Vector2D) {
+    return Math.atan2(v.y, v.x);
+}
+
+export function vdot(v1: Vector2D, v2: Vector2D) {
+    return v1.x * v2.x + v1.y * v2.y;
+}
+
+export function vscalarproject(v1: Vector2D, v2: Vector2D) {
+    return vdot(v1, v2) / (vlength(v2));
+}
+
+export function vproject(v1: Vector2D, v2: Vector2D) {
+    return vmul(v2, vscalarproject(v1, v2));
 }
