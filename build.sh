@@ -6,6 +6,8 @@ then
 	exit 1
 fi
 
-cp src/*.html build
+cp -r src/ build/
+
+cp src/static/* build/
 
 tsc

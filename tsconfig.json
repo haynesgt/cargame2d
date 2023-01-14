@@ -1,8 +1,9 @@
 {
     "compilerOptions": {
         "module": "CommonJS",
+        "esModuleInterop": true,
         "outDir": "./build/",
-        "sourceMap": true
+        "sourceMap": true,
     },
     "files": [
         "./src/game.tsx"
