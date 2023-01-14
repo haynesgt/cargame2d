@@ -105,7 +105,7 @@ export function most(...xs: number[]) {
 
 export function vmost(...vs: Vector2D[]) {
     return {
-        x: _(vs).sortBy(v => Math.abs(v.x))[0].x,
-        y: _(vs).sortBy(v => Math.abs(v.y))[0].y,
+        x: most(..._(vs).map("x").value()),
+        y: most(..._(vs).map("y").value()),
     }
 }

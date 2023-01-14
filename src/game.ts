@@ -1,6 +1,7 @@
 import {LoDashStatic} from "lodash";
 
 import {Vector2D, vec, vadd, vmod, vdeadzone, vunit, vtodeg, vrotrad, vlength, vmul, vproject, vscalarproject, vsub, vdecrease, vincrease, vmost, most} from "./vectors";
+import {PCMPlayer} from "./sound";
 
 const _: LoDashStatic = window._;
 
@@ -13,8 +14,10 @@ const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 interface Inputs {
     l: Vector2D;
     r: Vector2D;
-    lb: number;
-    rb: number;
+    lt: number;
+    rt: number;
+    lb: boolean;
+    rb: boolean;
 }
 
 interface StepData {
@@ -65,6 +68,10 @@ const datasets = {
     x3: [],
 }
 
+let randoms = new Float32Array(1000).map(x => Math.random());
+
+addEventListener("mousedown", () => randoms = new Float32Array(1000).map(x => Math.random()));
+
 class PlayerObject extends GameObject {
     pos: Vector2D;
     vel: Vector2D;
@@ -72,7 +79,12 @@ class PlayerObject extends GameObject {
     dir: Vector2D;
     wheelVel: Vector2D;
     tireAcc: Vector2D;
-    rpm: number;
+    shaftRpm: number;
+    throttle: number;
+    gear: number;
+
+    soundI: number;
+    soundJ: number;
 
     constructor() {
         super();
@@ -80,29 +92,58 @@ class PlayerObject extends GameObject {
         this.vel = vec(0, 0);
         this.wheelPos = 0;
         this.dir = vec(0, 1);
-        this.rpm = 0;
+        this.shaftRpm = 0;
+        this.throttle = 0;
         window["player"] = this;
+        this.soundI = 0;
+        this.soundJ = 0;
+        this.gear = 1;
     }
 
     step(data: StepData) {
+        this.throttle = data.inputs.rt * 0.1 + this.throttle * 0.9;
+        if (window["soundPlayer"]) {
+            const soundPlayer = window["soundPlayer"];
+            // data.timeDeltaMs * sound.option.sampleRate / 1000
+            const samplesNeeded = 
+            (
+                data.timeDeltaMs + 100 -
+                (soundPlayer.startTime - soundPlayer.audioCtx.currentTime) * 1000
+             ) * soundPlayer.option.sampleRate / 1000
+            if (samplesNeeded > 0) {
+                const rpm = this.shaftRpm;
+                const rsmpl = Math.floor(randoms[0] * 200 + 50);
+                const samples = new Float32Array(samplesNeeded
+                    ).map((x, i) =>
+                        (0.5 + randoms[Math.floor((this.soundI +=  Math.PI * (250 + rpm * 30) / 8000)) % rsmpl] * 0.5) * 0.5
+                        + (0.5 + randoms[rsmpl + Math.floor((this.soundJ +=  Math.PI * (250 + rpm * 30) / 8000)) % rsmpl] * 0.5) * (this.throttle * 0.5)
+                );
+                soundPlayer.feed(samples)
+            }
+            datasets.x2.push(this.shaftRpm);
+            datasets.x3.push(this.throttle * 20);
+            // console.log(samples.length);
+        }
         const velLength = vlength(this.vel);
         this.wheelPos = - vdeadzone(data.inputs.l, 0.1).x * 0.8 / Math.max(1, velLength / 5);
         this.dir = vrotrad(this.dir, this.wheelPos * Math.PI / 180 * vlength(this.vel) * 1.0);
 
-        const enginePower = data.inputs.rb;
-        this.rpm += this.rpm < 50 ? enginePower : 0;
-        this.rpm *= 0.999;
-        this.rpm = Math.max(0, this.rpm);
+        const enginePower = this.throttle;
+        this.shaftRpm += enginePower;
+        this.shaftRpm = Math.min(200, this.shaftRpm);
+        this.shaftRpm *= 0.995;
+        this.shaftRpm = Math.max(0, this.shaftRpm);
 
         // (back) wheel friction with road (minus axle friction)
         let x1: Vector2D;
         let x2: Vector2D;
         let x3: Vector2D;
         this.wheelVel = vproject(this.vel, this.dir);
-        const rpmLurch = this.rpm - vlength(this.wheelVel);
-        this.wheelVel = vdecrease(this.wheelVel, 0.001 + data.inputs.lb * 2);
+        const rpmLurch = this.shaftRpm - vlength(this.wheelVel);
+        const axleFriction = 0.004;
+        this.wheelVel = vdecrease(this.wheelVel, axleFriction + data.inputs.lt * 2);
         this.wheelVel = vadd(this.wheelVel, vmul(vunit(this.dir), Math.max(rpmLurch, rpmLurch) * 0.1));
-        this.rpm -= rpmLurch * 0.1;
+        this.shaftRpm -= rpmLurch * 0.1;
         this.tireAcc = vsub(this.wheelVel, this.vel);
         this.vel = vadd(this.vel, vmul(this.tireAcc, 1));
 
@@ -181,6 +222,13 @@ objectGraph.add(new PlayerObject());
 
 let lastStepTimeMs: number = 0;
 const maxFrameDelta = 100;
+
+window.addEventListener("mousedown", () => {
+    if (!window["soundPlayer"]) {
+        window["soundPlayer"] = new PCMPlayer({"encoding": "32bitFloat"})
+    }
+});
+
 function step() {
     const gamepad = navigator.getGamepads()[0];
 
@@ -191,18 +239,25 @@ function step() {
     lastStepTimeMs = nowMs;
 
     // KeyD ArrowRight
+    function keyDiff(plusKey: string, minusKey?: string) {
+        return (keyStates[plusKey] ? 1 : 0) - (minusKey ? (keyStates[minusKey] ? 1 : 0) : 0)
+    }
     let inputs: Inputs = {
-        l: { x: (keyStates["KeyD"] ? 1 : 0) - (keyStates["KeyA"] ? 1 : 0), y: (keyStates["KeyW"] ? 1 : 0) - (keyStates["KeyS"] ? 1 : 0), },
-        lb: 0,
-        r: { x: 0, y: 0 },
-        rb: (keyStates["ShiftLeft"] ? 1 : 0) - (keyStates["Space"] ? 1 : 0),
+        l: { x: keyDiff("KeyD", "KeyA"), y: keyDiff("KeyW", "KeyS"), },
+        lt: keyDiff("Space"),
+        r: { x: keyDiff("ArrowRight", "ArrowLeft"), y: keyDiff("ArrowUp", "ArrowDown") },
+        rt: keyDiff("ShiftLeft"),
+        lb: !!keyStates["KeyQ"],
+        rb: !!keyStates["KeyE"],
     };
     if (gamepad) {
         inputs = {
             l: vmost(inputs.l, { x: gamepad.axes[0], y: gamepad.axes[1]}),
-            lb: most(inputs.lb, gamepad.buttons[6].value),
+            lt: most(inputs.lt, gamepad.buttons[6].value),
             r: vmost(inputs.r, { x: gamepad.axes[2], y: gamepad.axes[3] }),
-            rb: most(inputs.rb, gamepad.buttons[7].value),
+            rt: most(inputs.rt, gamepad.buttons[7].value),
+            lb: inputs.lb || gamepad.buttons[4].pressed,
+            rb: inputs.rb || gamepad.buttons[5].pressed,
         }
     }
 
