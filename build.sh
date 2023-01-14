@@ -10,4 +10,4 @@ cp -r src/ build/
 
 cp src/static/* build/
 
-tsc
+webpack

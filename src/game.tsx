@@ -1,5 +1,7 @@
 import {LoDashStatic} from "lodash";
 
+import {Vector2D, v, vadd, vmod} from "./vectors";
+
 const _: LoDashStatic = window._;
 
 
@@ -7,45 +9,6 @@ const canvas = document.createElement("canvas");
 canvas.width = canvas.height = 512;
 document.body.append(canvas)
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-
-interface Vector2D {
-    x: number;
-    y: number;
-}
-
-function v(x: number, y: number): Vector2D {
-    return {x, y}
-}
-
-function vadd(...vs: Vector2D[]): Vector2D {
-    return {
-        x: _(vs).map("x").sum(),
-        y: _(vs).map("y").sum(),
-    }
-}
-
-function vmul(v: Vector2D, r: number): Vector2D {
-    return {
-        x: v.x * r,
-        y: v.y * r,
-    }
-}
-
-function vmod(a: Vector2D, n: Vector2D): Vector2D {
-    return {
-        x: n.x === undefined ? a.x : (a.x + n.x) % n.x,
-        y: n.y === undefined ? a.y : (a.y + n.y) % n.y,
-    }
-}
-
-function vlength(v: Vector2D) {
-    return v.x ** 2 + v.y ** 2;
-}
-
-function vunit(v: Vector2D) {
-    const length = vlength(v);
-    return length == 0 ? v : vmul(v, 1 / length);
-}
 
 interface Inputs {
     l: Vector2D;
@@ -102,7 +65,8 @@ class PlayerObject extends GameObject {
 
     render() {
         ctx.fillStyle = "black";
-        ctx.transform(1, 0, 0, 1, this.pos.x, this.pos.y);
+        ctx.translate(this.pos.x, this.pos.y);
+        ctx.rotate(45);
         ctx.fillRect(-5, -5, 10, 10);
         console.log("Redered player");
     }
