@@ -13,8 +13,8 @@ export function vec(x: number, y: number): Vector2D {
 
 export function vadd(...vs: Vector2D[]): Vector2D {
     return {
-        x: _(vs).map("x").sum(),
-        y: _(vs).map("y").sum(),
+        x: _(vs).sumBy("x"),
+        y: _(vs).sumBy("y"),
     }
 }
 
@@ -97,4 +97,15 @@ export function vscalarproject(v1: Vector2D, v2: Vector2D) {
 
 export function vproject(v1: Vector2D, v2: Vector2D) {
     return vmul(v2, vscalarproject(v1, v2));
+}
+
+export function most(...xs: number[]) {
+    return _(xs).sortBy(x => -Math.abs(x)).first()
+}
+
+export function vmost(...vs: Vector2D[]) {
+    return {
+        x: _(vs).sortBy(v => Math.abs(v.x))[0].x,
+        y: _(vs).sortBy(v => Math.abs(v.y))[0].y,
+    }
 }

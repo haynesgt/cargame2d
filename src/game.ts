@@ -1,6 +1,6 @@
 import {LoDashStatic} from "lodash";
 
-import {Vector2D, vec, vadd, vmod, vdeadzone, vunit, vtodeg, vrotrad, vlength, vmul, vproject, vscalarproject, vsub, vdecrease, vincrease} from "./vectors";
+import {Vector2D, vec, vadd, vmod, vdeadzone, vunit, vtodeg, vrotrad, vlength, vmul, vproject, vscalarproject, vsub, vdecrease, vincrease, vmost, most} from "./vectors";
 
 const _: LoDashStatic = window._;
 
@@ -172,30 +172,38 @@ class PlayerObject extends GameObject {
     }
 }
 
+const keyStates = {}
+document.addEventListener("keydown", (e) => keyStates[e.code] = true);
+document.addEventListener("keyup", (e) => keyStates[e.code] = false);
+
 const objectGraph = new GameGraph();
 objectGraph.add(new PlayerObject());
 
 let lastStepTimeMs: number = 0;
-const minFps = 10;
+const maxFrameDelta = 100;
 function step() {
     const gamepad = navigator.getGamepads()[0];
 
     const nowMs = new Date().getTime();
     const timeDeltaMs = Math.min(
-        nowMs - lastStepTimeMs, 1000 / minFps
+        nowMs - lastStepTimeMs, maxFrameDelta
     );
     lastStepTimeMs = nowMs;
 
-    let inputs: Inputs;
+    // KeyD ArrowRight
+    let inputs: Inputs = {
+        l: { x: (keyStates["KeyD"] ? 1 : 0) - (keyStates["KeyA"] ? 1 : 0), y: (keyStates["KeyW"] ? 1 : 0) - (keyStates["KeyS"] ? 1 : 0), },
+        lb: 0,
+        r: { x: 0, y: 0 },
+        rb: (keyStates["ShiftLeft"] ? 1 : 0) - (keyStates["Space"] ? 1 : 0),
+    };
     if (gamepad) {
         inputs = {
-            l: { x: gamepad.axes[0],y: gamepad.axes[1]},
-            lb: gamepad.buttons[6].value,
-            r: { x: gamepad.axes[2],y: gamepad.axes[3] },
-            rb: gamepad.buttons[7].value,
-    }
-    } else {
-        inputs = { l: { x: 0, y: 0 }, r: { x: 0, y: 0 }, lb: 0, rb: 0 };
+            l: vmost(inputs.l, { x: gamepad.axes[0], y: gamepad.axes[1]}),
+            lb: most(inputs.lb, gamepad.buttons[6].value),
+            r: vmost(inputs.r, { x: gamepad.axes[2], y: gamepad.axes[3] }),
+            rb: most(inputs.rb, gamepad.buttons[7].value),
+        }
     }
 
     ctx.resetTransform();
