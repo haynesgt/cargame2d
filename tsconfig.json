@@ -6,6 +6,6 @@
         "sourceMap": true,
     },
     "files": [
-        "./src/game.tsx"
+        "./src/game.ts"
     ]
 }

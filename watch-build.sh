@@ -18,5 +18,5 @@ build-and-log-to-file() {
   echo -e "Done\n" >> out.log
 }
 
-watch-cmd ./src build-and-log-to-file
+watch-cmd "./src ./*.*" build-and-log-to-file
 

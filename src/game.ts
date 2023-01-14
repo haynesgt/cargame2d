@@ -1,6 +1,6 @@
 import {LoDashStatic} from "lodash";
 
-import {Vector2D, v, vadd, vmod} from "./vectors";
+import {Vector2D, v, vadd, vmod, vdeadzone} from "./vectors";
 
 const _: LoDashStatic = window._;
 
@@ -59,7 +59,7 @@ class PlayerObject extends GameObject {
     }
 
     step(data: StepData) {
-        this.pos = vadd(this.pos, data.inputs.l);
+        this.pos = vadd(this.pos, vdeadzone(data.inputs.l, 0.1));
         this.pos = vmod(this.pos, v(canvas.width, canvas.height));
     }
 
@@ -68,7 +68,6 @@ class PlayerObject extends GameObject {
         ctx.translate(this.pos.x, this.pos.y);
         ctx.rotate(45);
         ctx.fillRect(-5, -5, 10, 10);
-        console.log("Redered player");
     }
 }
 

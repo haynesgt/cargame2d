@@ -49,3 +49,9 @@ export function vrotrad(v: Vector2D, theta: number) {
         y: -v.x * sinTheta + v.y * cosTheta,
     }    
 }
+
+export function vdeadzone(vec: Vector2D, threshold: number) {
+    const length = vlength(vec);
+    if (length < threshold) return v(0, 0);
+    return vec;
+}
