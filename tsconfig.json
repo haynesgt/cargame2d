@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "module": "CommonJS",
+        "outDir": "./build/",
+        "sourceMap": true
+    },
+    "files": [
+        "./src/game.tsx"
+    ]
+}
