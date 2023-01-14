@@ -24,21 +24,10 @@ function step() {
     );
     lastStepTimeMs = nowMs;
 
-    let gamepadInput;
+    let input;
     if (gamepad) {
-        gamepadInput = {
-            l: {
-                x: gamepad.axes[0],
-                y: gamepad.axes[1],
-            },
-            r: {
-                x: gamepad.axes[2],
-                y: gamepad.axes[3],
-            }
-        }
+        input = { l: {x: gamepad.axes[0],y: gamepad.axes[1]}, r: {x: gamepad.axes[2],y: gamepad.axes[3]} }
     } else {
-        gamepadInput = {
-            l: { x: 0, y: 0 }, r: { x: 0, y: 0 }
-        };
+        input = { l: { x: 0, y: 0 }, r: { x: 0, y: 0 } };
     }
 }
