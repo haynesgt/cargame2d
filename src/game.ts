@@ -1,7 +1,6 @@
 import {LoDashStatic} from "lodash";
 
 import {Vector2D, vec, vadd, vmod, vdeadzone, vunit, vtodeg, vrotrad, vlength, vmul, vproject, vscalarproject, vsub, vdecrease, vincrease, vmost, most} from "./vectors";
-import {PCMPlayer} from "./sound";
 
 import {OscData, Oscillators} from "./oscillatorSounds";
 
@@ -72,8 +71,6 @@ const datasets = {
 
 let randoms = new Float32Array(1000).map(x => Math.random());
 
-addEventListener("mousedown", () => randoms = new Float32Array(1000).map(x => Math.random()));
-
 class PlayerObject extends GameObject {
     pos: Vector2D;
     vel: Vector2D;
@@ -92,6 +89,7 @@ class PlayerObject extends GameObject {
 
     engineOsc: OscData;
     throttleOsc: OscData;
+    brakeOsc: OscData;
 
     oscs: Oscillators;
 
@@ -103,7 +101,6 @@ class PlayerObject extends GameObject {
         this.dir = vec(0, 1);
         this.shaftRpm = 0;
         this.throttle = 0;
-        window["player"] = this;
         this.soundI = 0;
         this.soundJ = 0;
         this.gear = 1;
@@ -113,6 +110,16 @@ class PlayerObject extends GameObject {
         this.oscs = new Oscillators();
         this.engineOsc = this.oscs.add();
         this.throttleOsc = this.oscs.add();
+        this.brakeOsc = this.oscs.add(2000);
+        this.brakeOsc.setFreq(0.3);
+
+        window["player"] = this;
+
+        addEventListener("mousedown", () => {
+            this.engineOsc.reset();
+            this.throttleOsc.reset();
+            this.brakeOsc.reset();
+        });
     }
 
     step(data: StepData) {
@@ -132,30 +139,20 @@ class PlayerObject extends GameObject {
             }
         }
 
-        this.rpm = this.rpm * 0.9 + 0.1 * Math.max(0, this.shaftRpm - 30 * (this.gear - 1))
+        this.rpm = (this.rpm * 0.9 + 0.1 * Math.max(0, this.shaftRpm - 30 * (this.gear - 1))) + 1;
 
-        if (window["soundPlayer"]) {
-            const soundPlayer = window["soundPlayer"];
-            // data.timeDeltaMs * sound.option.sampleRate / 1000
-            const samplesNeeded = 
-            (
-                data.timeDeltaMs + 100 -
-                (soundPlayer.startTime - soundPlayer.audioCtx.currentTime) * 1000
-             ) * soundPlayer.option.sampleRate / 1000
-            if (samplesNeeded > 0) {
-                const rpm = this.rpm;
-                const rsmpl = Math.floor(randoms[0] * 200 + 50);
-                const samples = new Float32Array(samplesNeeded
-                    ).map((x, i) =>
-                        (0.5 + randoms[Math.floor((this.soundI +=  Math.PI * (250 + rpm * 30) / 8000)) % rsmpl] * 0.5) * 0.5
-                        + (0.5 + randoms[rsmpl + Math.floor((this.soundJ +=  Math.PI * (250 + rpm * 30) / 8000)) % rsmpl] * 0.5) * (this.throttle * 0.5)
-                );
-                soundPlayer.feed(samples)
-            }
+        if (true) {
+            this.engineOsc.setFreq(this.rpm);
+            this.engineOsc.setVolume(1);
+            this.throttleOsc.setFreq(this.rpm);
+            this.throttleOsc.setVolume(this.throttle);
+            this.brakeOsc.setVolume(data.inputs.lt * Math.min(1, vlength(this.vel) / 10) * 4);
+            this.brakeOsc.setFreq(0.1 + vlength(this.vel) / 500);
+
             datasets.x1.push(this.rpm);
             datasets.x2.push(this.shaftRpm);
-            datasets.x3.push(this.throttle * 20);
-            // console.log(samples.length);
+            datasets.x3.push(this.throttle);
+            datasets.vel.push(vlength(this.vel));
         }
         const velLength = vlength(this.vel);
         this.wheelPos = - vdeadzone(data.inputs.l, 0.1).x * 0.8 / Math.max(1, velLength / 5);
@@ -168,13 +165,11 @@ class PlayerObject extends GameObject {
         this.shaftRpm = Math.max(0, this.shaftRpm);
 
         // (back) wheel friction with road (minus axle friction)
-        let x1: Vector2D;
-        let x2: Vector2D;
-        let x3: Vector2D;
-        this.wheelVel = vproject(this.vel, this.dir);
-        const rpmLurch = this.shaftRpm - vlength(this.wheelVel);
+        const roadSpeedInTireDir = vproject(this.vel, this.dir);
         const axleFriction = 0.004;
-        this.wheelVel = vdecrease(this.wheelVel, axleFriction + data.inputs.lt * 2);
+        const breakFriction = data.inputs.lt * 2;
+        this.wheelVel = vdecrease(roadSpeedInTireDir, axleFriction + breakFriction);
+        const rpmLurch = this.shaftRpm * 1.0 - vlength(roadSpeedInTireDir);
         this.wheelVel = vadd(this.wheelVel, vmul(vunit(this.dir), Math.max(rpmLurch, rpmLurch) * 0.1));
         this.shaftRpm -= rpmLurch * 0.1;
         this.tireAcc = vsub(this.wheelVel, this.vel);
@@ -206,24 +201,33 @@ class PlayerObject extends GameObject {
             });
         });
 
-        function strokeData(data) {
+        function strokeData(col, data, i) {
+            if (data.length === 0) return;
+            ctx.strokeStyle = col;
             ctx.beginPath();
             ctx.moveTo(0, 0);
-            data.slice(-500).forEach((x, i) => {
-                ctx.lineTo(i, x);
+            const showData: number[] = data.slice(-500);
+            const minData = _.min(showData);
+            const dataRange = _.max(showData) - minData;
+            let val = _.mean(showData.slice(0, 10));
+            showData.forEach((x, i) => {
+                val = val * 0.8 + x * 0.2;
+                ctx.lineTo(i, (val - minData) / dataRange * 100);
             });
             ctx.stroke();
+            const lastData = val;
+            const fmt = new Intl.NumberFormat('en-IN', { maximumSignificantDigits: 3 });
+            withTransform(() => {
+                ctx.scale(1, -1);
+                ctx.strokeText(fmt.format(lastData), Math.min(450, data.length), i * 20)
+            });
         }
         withTransform(() => {
             ctx.translate(0, 200);
-            ctx.strokeStyle = "red";
-            strokeData(datasets.vel);
-            ctx.strokeStyle = "green";
-            strokeData(datasets.x1);
-            ctx.strokeStyle = "blue";
-            strokeData(datasets.x2);
-            ctx.strokeStyle = "brown";
-            strokeData(datasets.x3);
+            strokeData("red", datasets.vel, 0);
+            strokeData("green", datasets.x1, 1);
+            strokeData("blue", datasets.x2, 2);
+            strokeData("brown", datasets.x3, 3);
         });
 
         function strokeVec(vec) {
@@ -255,13 +259,6 @@ objectGraph.add(new PlayerObject());
 
 let lastStepTimeMs: number = 0;
 const maxFrameDelta = 100;
-
-window.addEventListener("mousedown", () => {
-    if (!window["soundPlayer"]) {
-        window["soundPlayer"] = new PCMPlayer({"encoding": "32bitFloat"})
-    }
-});
-
 function step() {
     const gamepad = navigator.getGamepads()[0];
 
@@ -271,7 +268,6 @@ function step() {
     );
     lastStepTimeMs = nowMs;
 
-    // KeyD ArrowRight
     function keyDiff(plusKey: string, minusKey?: string) {
         return (keyStates[plusKey] ? 1 : 0) - (minusKey ? (keyStates[minusKey] ? 1 : 0) : 0)
     }
