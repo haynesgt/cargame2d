@@ -3,6 +3,8 @@ import {LoDashStatic} from "lodash";
 import {Vector2D, vec, vadd, vmod, vdeadzone, vunit, vtodeg, vrotrad, vlength, vmul, vproject, vscalarproject, vsub, vdecrease, vincrease, vmost, most} from "./vectors";
 import {PCMPlayer} from "./sound";
 
+import {OscData, Oscillators} from "./oscillatorSounds";
+
 const _: LoDashStatic = window._;
 
 
@@ -81,10 +83,17 @@ class PlayerObject extends GameObject {
     tireAcc: Vector2D;
     shaftRpm: number;
     throttle: number;
+    rpm: number;
     gear: number;
+    canShift: boolean;
 
     soundI: number;
     soundJ: number;
+
+    engineOsc: OscData;
+    throttleOsc: OscData;
+
+    oscs: Oscillators;
 
     constructor() {
         super();
@@ -98,10 +107,33 @@ class PlayerObject extends GameObject {
         this.soundI = 0;
         this.soundJ = 0;
         this.gear = 1;
+        this.rpm = 0;
+        this.canShift = true;
+
+        this.oscs = new Oscillators();
+        this.engineOsc = this.oscs.add();
+        this.throttleOsc = this.oscs.add();
     }
 
     step(data: StepData) {
         this.throttle = data.inputs.rt * 0.1 + this.throttle * 0.9;
+
+        if (!data.inputs.lb && !data.inputs.rb) {
+            this.canShift = true;
+        }
+        if (this.canShift) {
+            if (data.inputs.lb) {
+                this.gear = Math.max(1, this.gear - 1);
+                this.canShift = false;
+            }
+            if (data.inputs.rb) {
+                this.gear = Math.min(5, this.gear + 1);
+                this.canShift = false;
+            }
+        }
+
+        this.rpm = this.rpm * 0.9 + 0.1 * Math.max(0, this.shaftRpm - 30 * (this.gear - 1))
+
         if (window["soundPlayer"]) {
             const soundPlayer = window["soundPlayer"];
             // data.timeDeltaMs * sound.option.sampleRate / 1000
@@ -111,7 +143,7 @@ class PlayerObject extends GameObject {
                 (soundPlayer.startTime - soundPlayer.audioCtx.currentTime) * 1000
              ) * soundPlayer.option.sampleRate / 1000
             if (samplesNeeded > 0) {
-                const rpm = this.shaftRpm;
+                const rpm = this.rpm;
                 const rsmpl = Math.floor(randoms[0] * 200 + 50);
                 const samples = new Float32Array(samplesNeeded
                     ).map((x, i) =>
@@ -120,6 +152,7 @@ class PlayerObject extends GameObject {
                 );
                 soundPlayer.feed(samples)
             }
+            datasets.x1.push(this.rpm);
             datasets.x2.push(this.shaftRpm);
             datasets.x3.push(this.throttle * 20);
             // console.log(samples.length);
@@ -129,9 +162,9 @@ class PlayerObject extends GameObject {
         this.dir = vrotrad(this.dir, this.wheelPos * Math.PI / 180 * vlength(this.vel) * 1.0);
 
         const enginePower = this.throttle;
-        this.shaftRpm += enginePower;
+        this.shaftRpm += enginePower / 4;
         this.shaftRpm = Math.min(200, this.shaftRpm);
-        this.shaftRpm *= 0.995;
+        this.shaftRpm *= 0.999;
         this.shaftRpm = Math.max(0, this.shaftRpm);
 
         // (back) wheel friction with road (minus axle friction)
