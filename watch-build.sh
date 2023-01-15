@@ -14,7 +14,7 @@ watch-cmd() {
 
 build-and-log-to-file() {
   echo "Building" >> out.log
-  ./build.sh 2>&1 >> out.log
+  npm run build 2>&1 >> out.log
   echo -e "Done\n" >> out.log
 }
 
