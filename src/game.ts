@@ -163,7 +163,7 @@ class PlayerObject extends GameObject {
 
         const enginePower = this.throttle / 4;
         const minRpm = 30;
-        const maxRpm = 100;
+        const maxRpm = 200;
         if (this.rpm < minRpm) {
             this.shaftRpm += enginePower * this.rpm / minRpm;
         } else {
