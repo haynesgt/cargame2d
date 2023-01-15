@@ -3,6 +3,11 @@
     <head>
         <script src="https://unpkg.com/lodash@4.17.21" crossorigin></script>
         <style>
+            .center {
+                position: absolute;
+                left: 50%;
+                transform: translate(-50%, 0);
+            }
             canvas {
                 position: absolute;
                 left: 50%;
@@ -12,6 +17,13 @@
         </style>
     </head>
     <body bgcolor="lightgreen">
+        <div class="center">
+            Turn: A / D / Left Joystick<br/>
+            Gear: Q / E / Left Button / Right Button<br/>
+            Throttle: Shift / Right Trigger<br/>
+            Brake: Space / Left Trigger<br/>
+            Change Engine Sound: Mouse Click
+        </div>
         <script>exports = {}; require = () => {}</script>
         <script src="bundle.js"></script>
     </body>

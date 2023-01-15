@@ -217,7 +217,7 @@ class PlayerObject extends GameObject {
             });
         });
 
-        function strokeData(col, data, i) {
+        function strokeData(col: string, data: number[], i: number) {
             if (data.length === 0) return;
             ctx.strokeStyle = col;
             ctx.beginPath();
@@ -238,13 +238,15 @@ class PlayerObject extends GameObject {
                 ctx.strokeText(fmt.format(lastData), Math.min(450, data.length), i * 20)
             });
         }
-        withTransform(() => {
-            ctx.translate(0, 200);
-            strokeData("red", datasets.vel, 0);
-            strokeData("green", datasets.x1, 1);
-            strokeData("blue", datasets.x2, 2);
-            strokeData("brown", datasets.x3, 3);
-        });
+        if (false) {
+            withTransform(() => {
+                ctx.translate(0, 200);
+                strokeData("red", datasets.vel, 0);
+                strokeData("green", datasets.x1, 1);
+                strokeData("blue", datasets.x2, 2);
+                strokeData("brown", datasets.x3, 3);
+            });
+        }
 
         function strokeVec(vec) {
             ctx.beginPath();
