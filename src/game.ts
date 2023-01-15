@@ -72,6 +72,7 @@ const datasets = {
 let randoms = new Float32Array(1000).map(x => Math.random());
 
 class PlayerObject extends GameObject {
+    gearRatios: number[];
     pos: Vector2D;
     vel: Vector2D;
     wheelPos: number;
@@ -95,6 +96,8 @@ class PlayerObject extends GameObject {
 
     constructor() {
         super();
+        this.gearRatios = [10, 4, 2, 1, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7];
+
         this.pos = vec(canvas.width / 2, canvas.height / 2);
         this.vel = vec(0, 0);
         this.wheelPos = 0;
@@ -139,7 +142,7 @@ class PlayerObject extends GameObject {
             }
         }
 
-        this.rpm = (this.rpm * 0.9 + 0.1 * Math.max(0, this.shaftRpm - 30 * (this.gear - 1))) + 1;
+        this.rpm = (this.rpm * 0.9 + 0.1 * (Math.max(0, 2 * this.shaftRpm * this.gearRatios[this.gear]) + 5))
 
         if (true) {
             this.engineOsc.setFreq(this.rpm);
@@ -155,12 +158,22 @@ class PlayerObject extends GameObject {
             datasets.vel.push(vlength(this.vel));
         }
         const velLength = vlength(this.vel);
-        this.wheelPos = - vdeadzone(data.inputs.l, 0.1).x * 0.8 / Math.max(1, velLength / 5);
-        this.dir = vrotrad(this.dir, this.wheelPos * Math.PI / 180 * vlength(this.vel) * 1.0);
+        this.wheelPos = - vdeadzone(data.inputs.l, 0.1).x * 2.0 / Math.max(2.0, velLength * 1.0);
+        this.dir = vrotrad(this.dir, this.wheelPos * Math.PI / 180 * vlength(this.vel) * 2.0);
 
-        const enginePower = this.throttle;
-        this.shaftRpm += enginePower / 4;
-        this.shaftRpm = Math.min(200, this.shaftRpm);
+        const enginePower = this.throttle / 4;
+        const minRpm = 30;
+        const maxRpm = 100;
+        if (this.rpm < minRpm) {
+            this.shaftRpm += enginePower * this.rpm / minRpm;
+        } else {
+            if (this.rpm < maxRpm) {
+                this.shaftRpm += Math.min(enginePower, maxRpm - this.rpm);
+            } else {
+                this.shaftRpm -= Math.max(1, Math.min(this.rpm - maxRpm, this.rpm - this.shaftRpm)) * 0.01;
+            }
+            
+        }
         this.shaftRpm *= 0.999;
         this.shaftRpm = Math.max(0, this.shaftRpm);
 
@@ -169,11 +182,14 @@ class PlayerObject extends GameObject {
         const axleFriction = 0.004;
         const breakFriction = data.inputs.lt * 2;
         this.wheelVel = vdecrease(roadSpeedInTireDir, axleFriction + breakFriction);
+        const lurchCoef = 0.02;
         const rpmLurch = this.shaftRpm * 1.0 - vlength(roadSpeedInTireDir);
-        this.wheelVel = vadd(this.wheelVel, vmul(vunit(this.dir), Math.max(rpmLurch, rpmLurch) * 0.1));
-        this.shaftRpm -= rpmLurch * 0.1;
+        this.wheelVel = vadd(this.wheelVel, vmul(vunit(this.dir), Math.max(rpmLurch, rpmLurch) * lurchCoef));
+        this.shaftRpm -= rpmLurch * lurchCoef;
         this.tireAcc = vsub(this.wheelVel, this.vel);
-        this.vel = vadd(this.vel, vmul(this.tireAcc, 1));
+        // apply tire force to vel unless it skids
+        this.vel = vadd(this.vel, vmul(this.tireAcc, vlength(this.tireAcc) > 1 ? 0.1 : 0.3));
+        // datasets.x2.push((vlength(this.tireAcc)));
 
         this.pos = vadd(this.pos, this.vel);
         this.pos = vmod(this.pos, vec(canvas.width, canvas.height));
