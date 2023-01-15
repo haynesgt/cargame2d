@@ -2,7 +2,8 @@
 	"scripts": {
 		"clean": "rm -r build",
 		"build": "cp -r src/ build/ && cp src/static/* build/ && webpack",
-		"dev": "http-server -p ${PORT-9999}"
+		"dev": "http-server -p ${PORT-9999}",
+		"watch-ts": "webpack --watch"
 	},
 	"dependencies": {
 		"@types/lodash": "^4.14.191",
